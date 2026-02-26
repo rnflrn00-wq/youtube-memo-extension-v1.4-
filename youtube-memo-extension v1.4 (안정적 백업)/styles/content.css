@@ -2,22 +2,61 @@
   position: fixed;
   top: 80px;
   right: 20px;
-  background: #111;
-  color: #fff;
-  padding: 14px;
-  width: 260px;
-  border-radius: 8px;
-  z-index: 999999;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-  font-size: 14px;
+  width: 280px;
+  color: #e5e7eb;
+  background: rgba(15, 23, 42, 0.95);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  box-shadow: 0 8px 26px rgba(2, 6, 23, 0.45);
+  z-index: 2147483646;
+  overflow: hidden;
+  transition: opacity 0.24s ease;
 }
 
-#yt-memo-box button {
-  margin-top: 6px;
-  padding: 4px 8px;
-  background: #ff0000;
+#yt-memo-box.hidden {
+  display: none;
+}
+
+#yt-memo-box.fade-out,
+.time-pill.fade-out {
+  opacity: 0;
+}
+
+#yt-memo-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  cursor: move;
+  user-select: none;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+#yt-memo-close {
   border: none;
-  border-radius: 4px;
-  color: #fff;
+  color: #e5e7eb;
+  background: transparent;
   cursor: pointer;
+}
+
+#yt-main-memo {
+  padding: 10px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#yt-time-container {
+  padding: 0 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.time-pill {
+  background: rgba(30, 64, 175, 0.45);
+  border: 1px solid rgba(147, 197, 253, 0.3);
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  transition: opacity 0.24s ease;
 }
