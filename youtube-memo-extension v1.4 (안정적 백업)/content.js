@@ -1,205 +1,195 @@
+const overlayState = {
+  root: null,
+  mainMemoEl: null,
+  timeMemoContainer: null,
+  videoId: null,
+  mainVisible: false,
+  mainHideTimer: null,
+  timeHideTimers: new Map(),
+  timeTriggeredAtSecond: {},
+  overlayEnabled: true,
+  drag: { active: false, x: 20, y: 80, offsetX: 0, offsetY: 0 }
+};
+
 function getVideoId() {
-  const match = location.search.match(/[?&]v=([^&]+)/);
-  return match ? match[1] : null;
+  const watchMatch = location.search.match(/[?&]v=([^&]+)/);
+  if (watchMatch) return watchMatch[1];
+  const shortsMatch = location.pathname.match(/\/shorts\/([^/]+)/);
+  return shortsMatch ? shortsMatch[1] : null;
 }
 
-function removeExistingMemo() {
-  const existing = document.getElementById("yt-memo-box");
-  if (existing) existing.remove();
+function normalizeData(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const mainMemo = typeof raw.mainMemo === "string"
+    ? raw.mainMemo
+    : (Array.isArray(raw.memos) ? (raw.memos.find((m) => (m?.time || 0) === 0)?.text || "") : "");
+
+  const timeMemos = Array.isArray(raw.timeMemos)
+    ? raw.timeMemos
+    : (Array.isArray(raw.memos) ? raw.memos.filter((m) => Number(m?.time) > 0) : []);
+
+  return {
+    mainMemo: mainMemo || "",
+    timeMemos: timeMemos.map((m) => ({ id: m.id || `${m.time}-${m.text}`, time: Math.max(1, Math.floor(Number(m.time) || 0)), text: String(m.text || "") }))
+  };
 }
 
-let popupBox = null;
-let timeContainer = null;
-let shownBase = false;
-let activeTimes = {};
-let closedByUser = false;
+function ensureOverlay() {
+  if (overlayState.root) return;
+  const root = document.createElement("section");
+  root.id = "yt-memo-box";
+  root.innerHTML = `
+    <header id="yt-memo-header">
+      <strong>📌 YouTube Memo</strong>
+      <button id="yt-memo-close">✕</button>
+    </header>
+    <div id="yt-main-memo"></div>
+    <div id="yt-time-container"></div>
+  `;
+  document.body.appendChild(root);
 
-function createBasePopup(baseText, titleText = "📌 Saved Memo") {
-  removeExistingMemo();
+  overlayState.root = root;
+  overlayState.mainMemoEl = root.querySelector("#yt-main-memo");
+  overlayState.timeMemoContainer = root.querySelector("#yt-time-container");
 
-  popupBox = document.createElement("div");
-  popupBox.id = "yt-memo-box";
+  root.querySelector("#yt-memo-close").onclick = () => hideOverlay();
 
-  Object.assign(popupBox.style, {
-    position: "fixed",
-    top: "80px",
-    right: "20px",
-    background: "#111",
-    color: "#fff",
-    padding: "14px",
-    width: "260px",
-    borderRadius: "8px",
-    zIndex: "99999",
-    boxShadow: "0 4px 12px rgba(0,0,0,0.4)",
-    fontSize: "14px"
+  const header = root.querySelector("#yt-memo-header");
+  header.addEventListener("mousedown", (e) => {
+    overlayState.drag.active = true;
+    overlayState.drag.offsetX = e.clientX - overlayState.drag.x;
+    overlayState.drag.offsetY = e.clientY - overlayState.drag.y;
+    e.preventDefault();
   });
 
-  const baseContainer = document.createElement("div");
-  baseContainer.innerHTML = `
-    <div style="font-weight:bold;margin-bottom:6px;">${titleText}</div>
-    <div style="margin-bottom:8px;">${baseText}</div>
-  `;
+  document.addEventListener("mousemove", (e) => {
+    if (!overlayState.drag.active) return;
+    overlayState.drag.x = Math.max(0, e.clientX - overlayState.drag.offsetX);
+    overlayState.drag.y = Math.max(0, e.clientY - overlayState.drag.offsetY);
+    root.style.left = `${overlayState.drag.x}px`;
+    root.style.top = `${overlayState.drag.y}px`;
+    root.style.right = "auto";
+  });
 
-  timeContainer = document.createElement("div");
-  timeContainer.id = "yt-time-container";
-  timeContainer.style.marginTop = "8px";
-
-  const closeBtn = document.createElement("button");
-  closeBtn.innerText = "닫기";
-  closeBtn.style.marginTop = "8px";
-  closeBtn.onclick = () => {
-    closedByUser = true;
-    popupBox.remove();
-  };
-
-  popupBox.appendChild(baseContainer);
-  popupBox.appendChild(timeContainer);
-  popupBox.appendChild(closeBtn);
-
-  document.body.appendChild(popupBox);
+  document.addEventListener("mouseup", () => {
+    overlayState.drag.active = false;
+  });
 }
 
-function showTimeInsidePopup(text) {
-  if (!timeContainer) return;
+function hideOverlay() {
+  if (!overlayState.root) return;
+  overlayState.root.classList.add("hidden");
+  overlayState.mainVisible = false;
+  clearTimeout(overlayState.mainHideTimer);
+}
+
+function showMainMemo(text, force = false) {
+  if (!overlayState.overlayEnabled && !force) return;
+  if (!text) return;
+  ensureOverlay();
+
+  overlayState.mainMemoEl.textContent = text;
+  overlayState.root.classList.remove("hidden");
+  overlayState.root.classList.remove("fade-out");
+  overlayState.mainVisible = true;
+
+  clearTimeout(overlayState.mainHideTimer);
+  overlayState.mainHideTimer = setTimeout(() => {
+    if (!overlayState.root) return;
+    overlayState.root.classList.add("fade-out");
+    setTimeout(() => {
+      if (overlayState.root) overlayState.root.classList.add("hidden");
+      overlayState.root?.classList.remove("fade-out");
+      overlayState.mainVisible = false;
+    }, 240);
+  }, 6000);
+}
+
+function showTimeMemoPopup(memo) {
+  ensureOverlay();
+  overlayState.root.classList.remove("hidden");
 
   const item = document.createElement("div");
-  item.style.background = "#222";
-  item.style.padding = "6px";
-  item.style.marginTop = "6px";
-  item.style.borderRadius = "4px";
-  item.innerText = text;
+  item.className = "time-pill";
+  item.textContent = `⏱ ${memo.text}`;
+  overlayState.timeMemoContainer.appendChild(item);
 
-  timeContainer.appendChild(item);
+  const key = memo.id;
+  if (overlayState.timeHideTimers.has(key)) {
+    clearTimeout(overlayState.timeHideTimers.get(key));
+  }
 
-  setTimeout(() => {
-    item.remove();
+  const timer = setTimeout(() => {
+    item.classList.add("fade-out");
+    setTimeout(() => item.remove(), 240);
+    overlayState.timeHideTimers.delete(key);
   }, 3000);
+
+  overlayState.timeHideTimers.set(key, timer);
 }
 
-function getNormalizedMemos(data) {
-  if (!data) return [];
-  if (Array.isArray(data.memos)) {
-    return data.memos.filter(m => m && typeof m.text === "string").map(m => ({
-      time: Number.isFinite(m.time) ? Math.max(0, Math.floor(m.time)) : 0,
-      text: m.text
-    }));
+function checkVideoMemos() {
+  const video = document.querySelector("video");
+  const videoId = getVideoId();
+  if (!video || !videoId) return;
+
+  if (overlayState.videoId !== videoId) {
+    overlayState.videoId = videoId;
+    overlayState.timeTriggeredAtSecond = {};
   }
-  if (typeof data === "string" && data.trim()) {
-    return [{ time: 0, text: data.trim() }];
-  }
-  return [];
+
+  chrome.storage.local.get([videoId, "__overlayEnabled"], (result) => {
+    overlayState.overlayEnabled = result.__overlayEnabled !== false;
+    const data = normalizeData(result[videoId]);
+    if (!data) return;
+
+    const second = Math.floor(video.currentTime);
+    data.timeMemos.forEach((memo) => {
+      if (memo.time === second) {
+        const seenKey = `${memo.id}:${second}`;
+        if (overlayState.timeTriggeredAtSecond[seenKey]) return;
+        overlayState.timeTriggeredAtSecond[seenKey] = true;
+        showTimeMemoPopup(memo);
+      }
+    });
+  });
 }
 
-
-function ensurePopupForMemos(memos) {
-  const base = memos.find(m => m.time === 0);
-  if (base) {
-    shownBase = true;
-    createBasePopup(base.text, "📌 Saved Memo");
-    return;
-  }
-
-  const firstTimeMemo = memos.find(m => m.time > 0);
-  if (firstTimeMemo) {
-    shownBase = true;
-    createBasePopup("기본 메모 없이 시간 메모만 등록된 영상입니다.", "⏱ Time Memo Only");
-  }
-}
-
-function forceShowMemoPopup(videoId) {
-  chrome.storage.local.get([videoId], (result) => {
-    const data = result[videoId];
-    const memos = getNormalizedMemos(data);
-    if (!memos.length) return;
-
-    closedByUser = false;
-    ensurePopupForMemos(memos);
+function showForCurrentVideo(force = false) {
+  const videoId = getVideoId();
+  if (!videoId) return;
+  chrome.storage.local.get([videoId, "__overlayEnabled"], (result) => {
+    overlayState.overlayEnabled = result.__overlayEnabled !== false;
+    const data = normalizeData(result[videoId]);
+    if (!data || !data.mainMemo) return;
+    showMainMemo(data.mainMemo, force);
   });
 }
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === "GET_TIME") {
     const video = document.querySelector("video");
-    if (video) {
-      sendResponse({ time: video.currentTime });
-      return;
-    }
-    sendResponse({ time: 0 });
+    sendResponse({ time: video ? video.currentTime : 0 });
     return;
   }
 
-  if (request.type === "SHOW_MEMO_POPUP") {
-    const currentId = getVideoId();
-    const targetId = request.videoId || currentId;
-    if (currentId && targetId && currentId === targetId) {
-      forceShowMemoPopup(targetId);
-    }
+  if (request.type === "SHOW_MAIN_MEMO") {
+    showForCurrentVideo(true);
+  }
+
+  if (request.type === "HIDE_MEMO_POPUP") {
+    hideOverlay();
   }
 });
 
-function checkMemos() {
-  const video = document.querySelector("video");
-  if (!video) {
-    removeExistingMemo();
-    return;
-  }
-
-  const videoId = getVideoId();
-  if (!videoId) {
-    removeExistingMemo();
-    return;
-  }
-
-  chrome.storage.local.get([videoId], (result) => {
-    const data = result[videoId];
-    const memos = getNormalizedMemos(data);
-
-    if (!memos.length) {
-      shownBase = false;
-      activeTimes = {};
-      removeExistingMemo();
-      return;
-    }
-
-    if (!shownBase && !closedByUser) {
-      ensurePopupForMemos(memos);
-    }
-
-    const currentTime = Math.floor(video.currentTime);
-
-    memos.forEach(m => {
-      if (m.time > 0) {
-        const diff = Math.abs(m.time - currentTime);
-        if (diff <= 1) {
-          if (!activeTimes[m.time]) {
-            if (!popupBox && !closedByUser) {
-              ensurePopupForMemos(memos);
-            }
-
-            activeTimes[m.time] = true;
-            showTimeInsidePopup(`⏱ ${m.text}`);
-          }
-        } else {
-          activeTimes[m.time] = false;
-        }
-      }
-    });
-  });
-}
-
-setInterval(checkMemos, 1000);
-
 let lastUrl = location.href;
-
 new MutationObserver(() => {
-  if (location.href !== lastUrl) {
-    lastUrl = location.href;
-    shownBase = false;
-    activeTimes = {};
-    closedByUser = false;
-    removeExistingMemo();
-    setTimeout(checkMemos, 500);
-  }
+  if (lastUrl === location.href) return;
+  lastUrl = location.href;
+  overlayState.videoId = null;
+  overlayState.timeTriggeredAtSecond = {};
+  showForCurrentVideo(false);
 }).observe(document, { subtree: true, childList: true });
 
-checkMemos();
+setInterval(checkVideoMemos, 250);
+showForCurrentVideo(false);

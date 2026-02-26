@@ -5,31 +5,58 @@
   <link rel="stylesheet" href="styles/popup.css">
 </head>
 <body>
+  <div id="app">
+    <header class="app-header">
+      <h1>YouTube Memo</h1>
+      <div class="header-actions">
+        <button id="goMainBtn" class="icon-btn" title="메인">🏠</button>
+        <button id="goListBtn" class="icon-btn" title="목록">📋</button>
+        <button id="goSettingsBtn" class="icon-btn" title="설정">⚙️</button>
+      </div>
+    </header>
 
-<h3>현재 영상에 메모 추가</h3>
-<div id="currentVideo"></div>
+    <main>
+      <section id="mainPage" class="page active">
+        <h2>현재 영상 메모</h2>
+        <div id="currentVideo" class="card"></div>
+        <label class="switch-row">
+          <span>플레이어 메모 표시</span>
+          <input id="overlaySwitch" type="checkbox" />
+        </label>
 
-<textarea id="memoInput" placeholder="메모 작성"></textarea>
+        <textarea id="memoInput" placeholder="메모 작성"></textarea>
+        <div class="button-row">
+          <button id="saveBaseMemoBtn" class="btn-primary">기본 메모 저장 (Enter)</button>
+          <button id="saveTimeBtn">현재 시간에 저장 (Shift+Enter)</button>
+        </div>
 
-<div class="button-row">
-  <button id="saveBaseMemoBtn">기본 메모 저장</button>
-  <button id="saveTimeBtn">현재 시간에 저장</button>
-</div>
+        <h3>최근 메모 (최대 5개)</h3>
+        <div id="recentMemoList" class="list"></div>
+      </section>
 
-<div class="button-row">
-  <button id="backupBtn">백업(JSON)</button>
-  <label for="restoreInput" class="file-btn">복원(JSON)</label>
-  <input id="restoreInput" type="file" accept="application/json" />
-</div>
+      <section id="listPage" class="page">
+        <div class="search-row">
+          <input type="text" id="searchInput" autocomplete="off" placeholder="채널명/메모 검색" />
+          <button id="clearSearchBtn" class="icon-btn">✕</button>
+        </div>
+        <div id="emptySearch" class="muted hidden"></div>
+        <div id="memoList"></div>
+      </section>
 
-<hr/>
+      <section id="settingsPage" class="page">
+        <h2>설정 / 데이터 관리</h2>
+        <div class="button-row">
+          <button id="backupBtn">백업(JSON)</button>
+          <label for="restoreInput" class="btn-like">복원(JSON)</label>
+          <input id="restoreInput" type="file" accept="application/json" />
+          <button id="deleteAllBtn" class="btn-danger">전체 데이터 삭제</button>
+        </div>
+      </section>
+    </main>
+  </div>
 
-<h3>검색</h3>
-<input type="text" id="searchInput" placeholder="제목 또는 메모 검색">
+  <div id="modalRoot"></div>
 
-<h3>저장된 메모 목록 (채널별)</h3>
-<div id="memoList"></div>
-
-<script src="popup.js"></script>
+  <script src="popup.js"></script>
 </body>
 </html>
