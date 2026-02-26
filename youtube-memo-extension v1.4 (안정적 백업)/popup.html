@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+
+<h3>현재 영상에 메모 추가</h3>
+<div id="currentVideo"></div>
+
+<textarea id="memoInput" placeholder="메모 작성"></textarea>
+
+<div class="button-row">
+  <button id="saveBaseMemoBtn">기본 메모 저장</button>
+  <button id="saveTimeBtn">현재 시간에 저장</button>
+</div>
+
+<div class="button-row">
+  <button id="backupBtn">백업(JSON)</button>
+  <label for="restoreInput" class="file-btn">복원(JSON)</label>
+  <input id="restoreInput" type="file" accept="application/json" />
+</div>
+
+<hr/>
+
+<h3>검색</h3>
+<input type="text" id="searchInput" placeholder="제목 또는 메모 검색">
+
+<h3>저장된 메모 목록 (채널별)</h3>
+<div id="memoList"></div>
+
+<script src="popup.js"></script>
+</body>
+</html>
